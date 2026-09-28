@@ -7,16 +7,16 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Memoria disponible baja en {{ $labels.host }}"
-          description: "Menos del 10% de RAM disponible durante 10 minutos. Sin swap de colchón, el siguiente paso es el OOM-killer."
+          summary: "Low available memory on {{ $labels.host }}"
+          description: "Less than 10% RAM available for 10 minutes. With no swap cushion, the next step is the OOM-killer."
 
       - alert: HostOOMKill
         expr: increase(node_vmstat_oom_kill[5m]) > 0
         labels:
           severity: critical
         annotations:
-          summary: "OOM-kill detectado en {{ $labels.host }}"
-          description: "El kernel mató un proceso por falta de memoria en los últimos 5 minutos."
+          summary: "OOM-kill detected on {{ $labels.host }}"
+          description: "The kernel killed a process due to memory pressure in the last 5 minutes."
 
       - alert: HostDiskSpaceLow
         expr: |
@@ -26,8 +26,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Poco espacio libre en {{ $labels.mountpoint }} ({{ $labels.host }})"
-          description: "Menos del 15% de espacio libre durante 10 minutos."
+          summary: "Low free space on {{ $labels.mountpoint }} ({{ $labels.host }})"
+          description: "Less than 15% free space for 10 minutes."
 
       - alert: HostHighLoad1
         expr: node_load1 / count without (cpu, mode) (node_cpu_seconds_total{mode="idle"}) > 1.5
@@ -35,8 +35,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Carga alta sostenida en {{ $labels.host }}"
-          description: "load1 por encima de 1.5x el número de CPUs durante 10 minutos."
+          summary: "Sustained high load on {{ $labels.host }}"
+          description: "load1 above 1.5x the CPU count for 10 minutes."
 
   - name: adguard
     rules:
@@ -45,8 +45,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "El contenedor de AdGuard sufrió un OOM-kill"
-          description: "DNS de la LAN en riesgo — revisa el estado del contenedor en micro01."
+          summary: "AdGuard container was OOM-killed"
+          description: "LAN DNS at risk — check the container status on micro01."
 
   - name: ceph
     rules:
@@ -55,8 +55,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Ceph en HEALTH_ERR"
-          description: "Estado ERR (no WARN) — el WARN de 1 nodo/size 1 es el estado aceptado, esto es un problema real."
+          summary: "Ceph in HEALTH_ERR"
+          description: "ERR state (not WARN) — the WARN from the 1-node/size-1 cluster is the accepted baseline, this is a real problem."
 
       - alert: CephOSDDown
         expr: ceph_osd_up == 0
@@ -64,8 +64,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "OSD {{ $labels.ceph_daemon }} caído"
-          description: "Sin swap en micro01, esto puede ser un OOM-kill del daemon, no solo lentitud."
+          summary: "OSD {{ $labels.ceph_daemon }} down"
+          description: "With no swap on micro01, this could be an OOM-killed daemon, not just slowness."
 
       - alert: CephPGsNotClean
         expr: |
@@ -75,16 +75,16 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "PGs de Ceph fuera de active+clean"
-          description: "Riesgo real de pérdida/corrupción de datos, no el WARN cosmético de siempre."
+          summary: "Ceph PGs outside active+clean"
+          description: "Real risk of data loss/corruption, not the usual cosmetic WARN."
 
       - alert: CephPoolNearFull
         expr: ceph_cluster_total_used_bytes / ceph_cluster_total_bytes > 0.85
         labels:
           severity: warning
         annotations:
-          summary: "Pool de Ceph por encima del 85% de uso"
-          description: "El pool tiene tamaño fijo, distinto del HDD físico completo — puede llenarse antes de lo que parece."
+          summary: "Ceph pool above 85% usage"
+          description: "The pool has a fixed size, different from the full physical HDD — it can fill up sooner than it looks."
 
       - alert: CephMetricsAbsent
         expr: absent(ceph_health_status)
@@ -92,5 +92,5 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Ceph dejó de reportar métricas"
-          description: "No es que Ceph esté mal — es que Alloy dejó de empujar sus métricas."
+          summary: "Ceph stopped reporting metrics"
+          description: "It's not that Ceph is broken — Alloy stopped pushing its metrics."
