@@ -1,0 +1,41 @@
+# dalinar host, from the node metrics Grafana Alloy pushes.
+groups:
+  - name: dalinar-host
+    rules:
+      - alert: HostMemoryPressureHigh
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low available memory on {{ $labels.host }}"
+          description: "Only {{ $value | humanizePercentage }} of RAM available for 10 minutes. There is no swap, so the OOM killer is next."
+
+      - alert: HostOOMKill
+        expr: increase(node_vmstat_oom_kill[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "OOM kill on {{ $labels.host }}"
+          description: "The kernel killed a process under memory pressure in the last 5 minutes."
+
+      - alert: HostDiskSpaceLow
+        expr: |
+          node_filesystem_avail_bytes{fstype!~"tmpfs|devtmpfs"}
+            / node_filesystem_size_bytes{fstype!~"tmpfs|devtmpfs"}
+          < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space on {{ $labels.host }}:{{ $labels.mountpoint }}"
+          description: "Only {{ $value | humanizePercentage }} free for 10 minutes."
+
+      - alert: HostHighLoad1
+        expr: node_load1 / count without (cpu, mode) (node_cpu_seconds_total{mode="idle"}) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sustained high load on {{ $labels.host }}"
+          description: 'load1 at {{ printf "%.1f" $value }}x the CPU count for 10 minutes.'

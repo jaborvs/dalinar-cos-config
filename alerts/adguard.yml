@@ -1,0 +1,11 @@
+# AdGuard Home, the LAN DNS, running as an LXD instance on micro01.
+groups:
+  - name: adguard
+    rules:
+      - alert: AdGuardOOMKilled
+        expr: increase(lxd_memory_OOM_kills_total{name="adguard"}[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "AdGuard container was OOM-killed"
+          description: "LAN DNS is at risk. Check the adguard instance on micro01."

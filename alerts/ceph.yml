@@ -1,0 +1,50 @@
+# Ceph on micro01: a single node with size-1 pools, so HEALTH_WARN is the normal state.
+groups:
+  - name: ceph
+    rules:
+      - alert: CephHealthError
+        expr: ceph_health_status == 2
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ceph is in HEALTH_ERR"
+          description: "HEALTH_WARN is the expected baseline on this single-node cluster. HEALTH_ERR is not."
+
+      - alert: CephOSDDown
+        expr: ceph_osd_up == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ceph OSD {{ $labels.ceph_daemon }} is down"
+          description: "Down for 5 minutes. micro01 has no swap, so check for an OOM kill as well as a crash."
+
+      - alert: CephPGsNotClean
+        expr: |
+          (
+              ceph_pg_degraded + ceph_pg_undersized + ceph_pg_incomplete
+            + ceph_pg_down + ceph_pg_inconsistent + ceph_pg_stale
+          ) > 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ceph PGs are not active+clean"
+          description: "Placement groups degraded, undersized, incomplete, down, inconsistent or stale for 10 minutes. Data is at risk."
+
+      - alert: CephPoolNearFull
+        expr: ceph_cluster_total_used_bytes / ceph_cluster_total_bytes > 0.85
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ceph cluster above 85% of its raw capacity"
+          description: "{{ $value | humanizePercentage }} used. The OSD is a fixed-size device, smaller than the physical disk, so it fills up before the disk does."
+
+      - alert: CephMetricsAbsent
+        expr: absent(ceph_health_status)
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No Ceph metrics received"
+          description: "ceph_health_status has been missing for 10 minutes. Alloy has probably stopped pushing; Ceph itself may be fine."
