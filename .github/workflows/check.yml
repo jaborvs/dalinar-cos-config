@@ -1,0 +1,33 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  PROMETHEUS_VERSION: 3.15.1
+
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install promtool
+        run: |
+          base="https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}"
+          tarball="prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+          curl -fsSLO "${base}/${tarball}"
+          curl -fsSL "${base}/sha256sums.txt" | grep " ${tarball}\$" | sha256sum -c -
+          tar xzf "${tarball}" --strip-components=1 "prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool"
+          sudo install promtool /usr/local/bin/
+
+      - name: Check rule syntax
+        run: promtool check rules alerts/*.yml
+
+      - name: Run rule unit tests
+        run: promtool test rules tests/*.yml

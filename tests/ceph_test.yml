@@ -1,0 +1,110 @@
+rule_files:
+  - ../alerts/ceph.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: HEALTH_WARN is the baseline and stays quiet, HEALTH_ERR fires
+    interval: 1m
+    input_series:
+      - series: 'ceph_health_status'
+        values: '1 1 1 2 2'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: CephHealthError
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: CephHealthError
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "Ceph is in HEALTH_ERR"
+              description: "HEALTH_WARN is the expected baseline on this single-node cluster. HEALTH_ERR is not."
+
+  - name: an OSD down for 5 minutes fires
+    interval: 1m
+    input_series:
+      - series: 'ceph_osd_up{ceph_daemon="osd.0"}'
+        values: '0x10'
+      - series: 'ceph_osd_up{ceph_daemon="osd.1"}'
+        values: '1x10'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: CephOSDDown
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CephOSDDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              ceph_daemon: osd.0
+            exp_annotations:
+              summary: "Ceph OSD osd.0 is down"
+              description: "Down for 5 minutes. micro01 has no swap, so check for an OOM kill as well as a crash."
+
+  - name: any PG outside active+clean for 10 minutes fires
+    interval: 1m
+    input_series:
+      - series: 'ceph_pg_degraded'
+        values: '1x15'
+      - series: 'ceph_pg_undersized'
+        values: '0x15'
+      - series: 'ceph_pg_incomplete'
+        values: '0x15'
+      - series: 'ceph_pg_down'
+        values: '0x15'
+      - series: 'ceph_pg_inconsistent'
+        values: '0x15'
+      - series: 'ceph_pg_stale'
+        values: '0x15'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: CephPGsNotClean
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: CephPGsNotClean
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "Ceph PGs are not active+clean"
+              description: "Placement groups degraded, undersized, incomplete, down, inconsistent or stale for 10 minutes. Data is at risk."
+
+  - name: above 85% raw capacity fires, at 85% it does not
+    interval: 1m
+    input_series:
+      - series: 'ceph_cluster_total_used_bytes'
+        values: '85 86'
+      - series: 'ceph_cluster_total_bytes'
+        values: '100 100'
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: CephPoolNearFull
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: CephPoolNearFull
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "Ceph cluster above 85% of its raw capacity"
+              description: "86% used. The OSD is a fixed-size device, smaller than the physical disk, so it fills up before the disk does."
+
+  - name: missing Ceph metrics for 10 minutes fires
+    interval: 1m
+    input_series:
+      - series: 'ceph_health_status'
+        values: '1 _x15'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: CephMetricsAbsent
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: CephMetricsAbsent
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "No Ceph metrics received"
+              description: "ceph_health_status has been missing for 10 minutes. Alloy has probably stopped pushing; Ceph itself may be fine."

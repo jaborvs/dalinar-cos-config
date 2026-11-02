@@ -1,0 +1,26 @@
+rule_files:
+  - ../alerts/adguard.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: an OOM kill of adguard fires, other instances do not
+    interval: 1m
+    input_series:
+      - series: 'lxd_memory_OOM_kills_total{name="adguard"}'
+        values: '0 0 1 1 1'
+      - series: 'lxd_memory_OOM_kills_total{name="other"}'
+        values: '0 0 1 1 1'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: AdGuardOOMKilled
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: AdGuardOOMKilled
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              name: adguard
+            exp_annotations:
+              summary: "AdGuard container was OOM-killed"
+              description: "LAN DNS is at risk. Check the adguard instance on micro01."

@@ -1,0 +1,102 @@
+rule_files:
+  - ../alerts/host.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: memory below 10% for 10 minutes fires, at the threshold it does not
+    interval: 1m
+    input_series:
+      - series: 'node_memory_MemAvailable_bytes{host="dalinar"}'
+        values: '8x20'
+      - series: 'node_memory_MemTotal_bytes{host="dalinar"}'
+        values: '100x20'
+      - series: 'node_memory_MemAvailable_bytes{host="micro01"}'
+        values: '10x20'
+      - series: 'node_memory_MemTotal_bytes{host="micro01"}'
+        values: '100x20'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: HostMemoryPressureHigh
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: HostMemoryPressureHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              host: dalinar
+            exp_annotations:
+              summary: "Low available memory on dalinar"
+              description: "Only 8% of RAM available for 10 minutes. There is no swap, so the OOM killer is next."
+
+  - name: an OOM kill fires at once and clears after 5 minutes
+    interval: 1m
+    input_series:
+      - series: 'node_vmstat_oom_kill{host="dalinar"}'
+        values: '0 0 1 1 1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: HostOOMKill
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: HostOOMKill
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              host: dalinar
+            exp_annotations:
+              summary: "OOM kill on dalinar"
+              description: "The kernel killed a process under memory pressure in the last 5 minutes."
+      - eval_time: 8m
+        alertname: HostOOMKill
+        exp_alerts: []
+
+  - name: low disk space fires, tmpfs is ignored
+    interval: 1m
+    input_series:
+      - series: 'node_filesystem_avail_bytes{host="dalinar",mountpoint="/",fstype="ext4"}'
+        values: '10x20'
+      - series: 'node_filesystem_size_bytes{host="dalinar",mountpoint="/",fstype="ext4"}'
+        values: '100x20'
+      - series: 'node_filesystem_avail_bytes{host="dalinar",mountpoint="/run",fstype="tmpfs"}'
+        values: '1x20'
+      - series: 'node_filesystem_size_bytes{host="dalinar",mountpoint="/run",fstype="tmpfs"}'
+        values: '100x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HostDiskSpaceLow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              host: dalinar
+              mountpoint: /
+              fstype: ext4
+            exp_annotations:
+              summary: "Low disk space on dalinar:/"
+              description: "Only 10% free for 10 minutes."
+
+  - name: load1 above 1.5x the CPU count fires
+    interval: 1m
+    input_series:
+      - series: 'node_load1{host="dalinar"}'
+        values: '6.4x20'
+      - series: 'node_cpu_seconds_total{host="dalinar",cpu="0",mode="idle"}'
+        values: '0+60x20'
+      - series: 'node_cpu_seconds_total{host="dalinar",cpu="1",mode="idle"}'
+        values: '0+60x20'
+      - series: 'node_cpu_seconds_total{host="dalinar",cpu="2",mode="idle"}'
+        values: '0+60x20'
+      - series: 'node_cpu_seconds_total{host="dalinar",cpu="3",mode="idle"}'
+        values: '0+60x20'
+      - series: 'node_cpu_seconds_total{host="dalinar",cpu="0",mode="user"}'
+        values: '0+60x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HostHighLoad1
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              host: dalinar
+            exp_annotations:
+              summary: "Sustained high load on dalinar"
+              description: "load1 at 1.6x the CPU count for 10 minutes."
